@@ -129,6 +129,9 @@
           margin-bottom: 100px;
           display: flex;
           flex-wrap: wrap;
+          overflow: auto;
+        
+          
     
           &.drag-files {
             background: #555;
@@ -156,37 +159,154 @@
 
         const imageInput = $('#image-input');
         const itemSection = $('#selector-items');
+        const resetTierButton = $('#reset-tier-button');
 
-        imageInput.addEventListener('change', e => {
-          const files = e.target.files;
+        function createImage (src) {
+          const imgElement = document.createElement('img');
+              imgElement.draggable = true;
+              imgElement.src = src;
+              imgElement.className = 'item-image';
 
-          for (const file of files) {
+              imgElement.addEventListener('dragstart', handleDragStart);
+              imgElement.addEventListener('dragend', handleDragEnd);
+
+              itemSection.appendChild(imgElement);
+              return imgElement;
+        }
+
+       function useFilesToCreateItems(files)
+        {
+          if (files && files.length > 0) {
+          Array.from(files).forEach(file => {
             const reader = new FileReader();
+            reader.onload = (eventReader) =>
+          {
+            createImage(eventReader.target.result);
 
-            reader.onload = e => {
-              const img = new Image();
-              img.src = e.target.result;
-
-              img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-
-                canvas.width = 50;
-                canvas.height = 50;
-
-                ctx.drawImage(img, 0, 0, 50, 50);
-
-                const item = document.createElement('img');
-                item.src = canvas.toDataURL();
-                item.classList.add('item-image');
-
-                itemSection.appendChild(item);
-              };
-            };
-
-            reader.readAsDataURL(file);
           }
+            
+            reader.readAsDataURL(file);
+          });
+        }
+        }
+
+        imageInput.addEventListener('change', event => {
+          const {files} = event.target;
+          useFilesToCreateItems(files);
         });
+
+        let draggedElement = null;
+        let sourceContainer = null;
+
+        const rows = $$('.tier .row');
+
+        rows.forEach(row => {
+          row.addEventListener('drop', handleDrop);
+          row.addEventListener('dragover', handleDragOver);
+          row.addEventListener('dragleave', handleDragLeave);
+        })
+
+        itemSection.addEventListener('dragover', handleDragOver);
+        itemSection.addEventListener('dragleave', handleDragLeave);
+        itemSection.addEventListener('drop', handleDrop);
+
+        itemSection.addEventListener('drop', handleDropFromDesktop);
+        itemSection.addEventListener('dragover', handleDragOverFromDesktop);
+        itemSection.addEventListener('dragleave', handleDragLeaveFromDesktop);
+
+        function handleDragOverFromDesktop(event) {
+          event.preventDefault();
+
+          const {currentTarget, dataTransfer} = event;
+
+          if (dataTransfer.types.includes('Files')) {
+            currentTarget.classList.add('drag-files');
+          }
+        }
+
+        function handleDropFromDesktop(event) {
+          event.preventDefault();
+
+         const {currentTarget, dataTransfer} = event;
+
+          if (dataTransfer.types.includes('Files')) {
+          currentTarget.classList.remove('drag-files');
+          useFilesToCreateItems(dataTransfer.files);
+          }
+
+        }
+
+      
+
+        function handleDragLeaveFromDesktop(event) {
+          event.preventDefault();
+        }
+
+
+        function handleDrop(event) {
+          event.preventDefault();
+
+          const {currentTarget, dataTransfer} = event;
+
+          if(sourceContainer && draggedElement){
+            sourceContainer.removeChild(draggedElement);
+          }
+
+          if (draggedElement) {
+            const src = dataTransfer.getData('text/plain');
+            const imgElement = createImage(src);
+            currentTarget.appendChild(imgElement);
+          }
+
+          currentTarget.classList.remove('drag-over');
+          currentTarget.querySelector('.drag-preview')?.remove();
+
+        } 
+
+
+        function handleDragOver(event) {
+          event.preventDefault();
+          const {currentTarget, dataTransfer} = event;
+          if (sourceContainer === currentTarget) return;
+
+          currentTarget.classList.add('drag-over');
+
+          const dragPreview = document.querySelector('.drag-preview');
+          if (draggedElement && !dragPreview) {
+            const previewElement = draggedElement.cloneNode(true);
+            previewElement.classList.add('drag-preview');
+            currentTarget.appendChild(previewElement);
+          }
+          
+        } 
+        function handleDragLeave(event) {
+          event.preventDefault();
+          const {currentTarget} = event;
+          currentTarget.classList.remove('drag-over');
+          currentTarget.querySelector('.drag-preview')?.remove();
+
+        }
+        
+
+        function handleDragStart(event) {
+          draggedElement = event.target;
+          sourceContainer = draggedElement.parentElement;   
+          event.dataTransfer.setData('text/plain', draggedElement.src);      
+        }
+
+        function handleDragEnd(event) {
+          draggedElement = null;
+          sourceContainer = null;
+        }
+
+        resetTierButton.addEventListener('click', () => {
+          const items = $$('.tier .item-image');
+          items.forEach(item => {
+            item.remove();
+            itemSection.appendChild(item);
+          });
+          }  );
+
 
       </script>
   </head>
